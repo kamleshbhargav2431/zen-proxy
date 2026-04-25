@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 3000
 
 const PROXY    = 'http://qijlkvsz-rotate:viryx2zv5njj@p.webshare.io:80'
 const RESOLVE  = 'https://animex-one.jeannefrankli-n2-7-2-0-5.workers.dev'
-const API_BASE = 'https://pp.animex.one'
+const API_BASE = 'https://api-amixeone.yilogag600-048.workers.dev'
 
 function proxyFetch(url, extraHeaders = {}) {
   const agent = new HttpsProxyAgent(PROXY)
@@ -16,8 +16,8 @@ function proxyFetch(url, extraHeaders = {}) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': 'https://pp.animex.one/',
-      'Origin': 'https://pp.animex.one',
+      'Referer': 'https://animex.one/',
+      'Origin': 'https://animex.one',
       'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124"',
       'sec-ch-ua-mobile': '?0',
       'sec-ch-ua-platform': '"Windows"',
