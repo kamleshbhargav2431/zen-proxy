@@ -4,7 +4,7 @@ const PROXY    = 'http://qijlkvsz-rotate:viryx2zv5njj@p.webshare.io:80'
 const RESOLVE  = 'https://animex-one.jeannefrankli-n2-7-2-0-5.workers.dev'
 const API_BASE = 'https://pp.animex.one'
 
-function proxyFetch(url, headers = {}) {
+function proxyFetch(url, extraHeaders = {}) {
   const agent = new HttpsProxyAgent(PROXY)
   return fetch(url, {
     agent,
@@ -20,32 +20,32 @@ function proxyFetch(url, headers = {}) {
       'sec-fetch-dest': 'empty',
       'sec-fetch-mode': 'cors',
       'sec-fetch-site': 'cross-site',
-      ...headers
+      ...extraHeaders
     }
   })
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const { slug: numericSlug, type, episode } = req.query
 
   if (!numericSlug || !type || !episode) {
-    return res.status(400).json({ error: 'Missing params' })
+    return res.status(400).json({ error: 'Missing params: slug, type, episode required' })
   }
 
   try {
-    // Step 1: Resolve slug
+    // Step 1: Resolve numericSlug -> real slug
     const resolveRes = await proxyFetch(`${RESOLVE}/?id=${encodeURIComponent(numericSlug)}`)
     if (!resolveRes.ok) throw new Error(`Slug resolve failed: ${resolveRes.status}`)
     const resolveData = await resolveRes.json()
     const slug = resolveData.slug
-    if (!slug) throw new Error('No slug returned')
+    if (!slug) throw new Error('No slug returned from resolve API')
 
-    // Step 2: Fetch sources via rotating proxy
+    // Step 2: Fetch sources using real slug via rotating proxy
     const sourcesUrl = `${API_BASE}/rest/api/sources?id=${encodeURIComponent(slug)}&epNum=${episode}&type=${type}&providerId=zen`
     const sourcesRes = await proxyFetch(sourcesUrl)
     if (!sourcesRes.ok) {
       const errText = await sourcesRes.text()
-      throw new Error(`Sources API failed: ${sourcesRes.status} — ${errText}`)
+      throw new Error(`Sources API ${sourcesRes.status}: ${errText}`)
     }
     const sourcesData = await sourcesRes.json()
 
@@ -53,7 +53,10 @@ export default async function handler(req, res) {
     const tracks  = sourcesData.tracks  || []
     if (!sources.length) throw new Error('No sources found')
 
-    const mainSource = sources.find(s => s.quality === 'auto' || s.quality === '1080p') || sources[0]
+    const mainSource =
+      sources.find(s => s.quality === 'auto') ||
+      sources.find(s => s.quality === '1080p') ||
+      sources[0]
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     return res.send(generatePlayerPage(mainSource.url, tracks, type, numericSlug, parseInt(episode)))
@@ -225,10 +228,10 @@ function generatePlayerPage(streamUrl, tracks, type, slug, episode) {
       TRACKS.forEach(track => {
         if (track.kind === 'thumbnails') return;
         const el = document.createElement('track');
-        el.src = track.url;
-        el.label = track.label || track.lang;
+        el.src     = track.url;
+        el.label   = track.label || track.lang;
         el.srclang = track.lang || 'und';
-        el.kind = track.kind || 'subtitles';
+        el.kind    = track.kind || 'subtitles';
         if (track.default) el.default = true;
         provider.appendChild(el);
       });
@@ -248,7 +251,7 @@ function generatePlayerPage(streamUrl, tracks, type, slug, episode) {
 
       player.addEventListener('time-update', () => {
         const currentTime = player.currentTime;
-        const duration = player.duration;
+        const duration    = player.duration;
         if (duration > 0 && currentTime > 10 && currentTime < duration - 30)
           localStorage.setItem(storageKey, currentTime);
         if (duration > 0) postMsg({ event: 'time', time: currentTime, duration });
@@ -276,14 +279,20 @@ function generatePlayerPage(streamUrl, tracks, type, slug, episode) {
 }
 
 function generateErrorPage(detail) {
+  const safe = detail.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   return `<html><head><title>Error</title>
-  <style>body{font-family:monospace;background:#0d0d0d;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
-  .box{background:#1a1a1a;border:1px solid #333;padding:2em 3em;border-radius:12px;text-align:center;max-width:500px;}
-  h4{color:#ff4444;margin-top:0;}.hint{color:#ffaa00;font-weight:bold;margin-top:1em;}
-  code{background:#333;padding:4px 8px;border-radius:4px;color:#ff8888;display:block;margin-top:1em;word-break:break-all;font-size:12px;}</style>
-  </head><body><div class="box"><h4>Playback Error</h4>
-  <p class="hint">Please try switching to another server</p>
-  <code>${detail}</code></div>
-  <script>window.parent.postMessage({event:'player_error',reason:'api_error'},'*');<\/script>
+  <style>
+    body { font-family: monospace; background: #0d0d0d; color: #eee; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .box { background: #1a1a1a; border: 1px solid #333; padding: 2em 3em; border-radius: 12px; text-align: center; max-width: 500px; }
+    h4 { color: #ff4444; margin-top: 0; }
+    .hint { color: #ffaa00; font-weight: bold; margin-top: 1em; }
+    code { background: #333; padding: 4px 8px; border-radius: 4px; color: #ff8888; display: block; margin-top: 1em; word-break: break-all; font-size: 12px; }
+  </style></head>
+  <body><div class="box">
+    <h4>Playback Error</h4>
+    <p class="hint">Please try switching to another server</p>
+    <code>${safe}</code>
+  </div>
+  <script>window.parent.postMessage({ event: 'player_error', reason: 'api_error' }, '*');<\/script>
   </body></html>`
 }
