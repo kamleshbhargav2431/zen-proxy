@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/:slug/sub/:episode", "destination": "/api/player?slug=:slug&type=sub&episode=:episode" },
+    { "source": "/:slug/dub/:episode", "destination": "/api/player?slug=:slug&type=dub&episode=:episode" }
+  ]
+}
