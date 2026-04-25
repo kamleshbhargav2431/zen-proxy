@@ -16,8 +16,8 @@ function proxyFetch(url, extraHeaders = {}) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': 'https://aniwave.to/',
-      'Origin': 'https://aniwave.to',
+      'Referer': 'https://pp.animex.one/',
+      'Origin': 'https://pp.animex.one',
       'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124"',
       'sec-ch-ua-mobile': '?0',
       'sec-ch-ua-platform': '"Windows"',
@@ -34,8 +34,10 @@ app.get('/:slug/:type(sub|dub)/:episode', async (req, res) => {
   const { slug: numericSlug, type, episode } = req.params
 
   try {
-    // Step 1: Resolve numericSlug -> real slug
-    const resolveRes = await proxyFetch(`${RESOLVE}/?id=${encodeURIComponent(numericSlug)}`)
+    // Step 1: Resolve numericSlug -> real slug (plain fetch, no proxy needed)
+    const resolveRes = await fetch(`${RESOLVE}/?id=${encodeURIComponent(numericSlug)}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    })
     if (!resolveRes.ok) throw new Error(`Slug resolve failed: ${resolveRes.status}`)
     const resolveData = await resolveRes.json()
     const slug = resolveData.slug
@@ -43,7 +45,10 @@ app.get('/:slug/:type(sub|dub)/:episode', async (req, res) => {
 
     // Step 2: Fetch sources using real slug via rotating proxy
     const sourcesUrl = `${API_BASE}/rest/api/sources?id=${encodeURIComponent(slug)}&epNum=${episode}&type=${type}&providerId=zen`
-    const sourcesRes = await proxyFetch(sourcesUrl)
+    const sourcesRes = await proxyFetch(sourcesUrl, {
+      'Referer': `${API_BASE}/`,
+      'Origin': API_BASE,
+    })
     if (!sourcesRes.ok) {
       const errText = await sourcesRes.text()
       throw new Error(`Sources API ${sourcesRes.status}: ${errText}`)
@@ -68,6 +73,33 @@ app.get('/:slug/:type(sub|dub)/:episode', async (req, res) => {
   }
 })
 
+
+// Debug: /debug/witch-hat-atelier-147105/sub/1
+app.get('/debug/:slug/:type(sub|dub)/:episode', async (req, res) => {
+  const { slug: numericSlug, type, episode } = req.params
+  const log = []
+  try {
+    const resolveUrl = RESOLVE + '/?id=' + encodeURIComponent(numericSlug)
+    log.push('STEP 1 URL: ' + resolveUrl)
+    const resolveRes = await fetch(resolveUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+    const resolveText = await resolveRes.text()
+    log.push('STEP 1 STATUS: ' + resolveRes.status)
+    log.push('STEP 1 BODY: ' + resolveText)
+    const resolveData = JSON.parse(resolveText)
+    const slug = resolveData.slug
+    log.push('SLUG: ' + slug)
+    const sourcesUrl = API_BASE + '/rest/api/sources?id=' + encodeURIComponent(slug) + '&epNum=' + episode + '&type=' + type + '&providerId=zen'
+    log.push('STEP 2 URL: ' + sourcesUrl)
+    const sourcesRes = await proxyFetch(sourcesUrl, { 'Referer': API_BASE + '/', 'Origin': API_BASE })
+    const sourcesText = await sourcesRes.text()
+    log.push('STEP 2 STATUS: ' + sourcesRes.status)
+    log.push('STEP 2 BODY: ' + sourcesText)
+  } catch(e) {
+    log.push('ERROR: ' + e.message)
+  }
+  const lines = log.map(l => '<div class="line">' + l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>').join('')
+  res.send('<html><head><style>body{font-family:monospace;background:#0d0d0d;color:#eee;padding:2em;}h2{color:#E6B800;}.line{background:#1a1a1a;border-left:3px solid #E6B800;padding:8px 12px;margin-bottom:6px;border-radius:4px;white-space:pre-wrap;word-break:break-all;font-size:13px;}</style></head><body><h2>Debug</h2>' + lines + '</body></html>')
+})
 app.get('/', (req, res) => {
   res.send(generateInfoPage())
 })
