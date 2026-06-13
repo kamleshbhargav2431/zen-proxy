@@ -4,7 +4,7 @@ const { HttpsProxyAgent } = require('https-proxy-agent')
 const app  = express()
 const PORT = process.env.PORT || 3000
 
-const PROXY    = 'http://qijlkvsz-rotate:viryx2zv5njj@p.webshare.io:80'
+const PROXY    = ''
 const RESOLVE  = 'https://animex-one.jeannefrankli-n2-7-2-0-5.workers.dev'
 const API_BASE = 'https://api-amixeone.yilogag600-048.workers.dev'
 
